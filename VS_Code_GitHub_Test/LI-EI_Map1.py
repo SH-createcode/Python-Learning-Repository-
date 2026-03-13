@@ -5,23 +5,29 @@ from pathlib import Path
 import folium
 
 # ---------------------------------------------------
-# FILE PATHS - relative to this script
+# PATH HANDLING (robust)
 # ---------------------------------------------------
 
-# Folder containing THIS .py file
+# Folder where THIS script lives
 HERE = Path(__file__).resolve().parent
 
-# Data folder inside the repo
+# Data folder inside VS_Code_GitHub_Test/
 DATA = HERE / "data"
 
+# Input files
 excel_path = DATA / "LI-EI.xlsx"
+boundary_path = DATA / "Hounslow_boundary.geojson"   # optional
+
+# Output HTML file
 output_map = HERE / "hounslow_income_acorn_map.html"
 
-hounslow_boundary = DATA / "Hounslow_boundary.geojson"
-ward_boundaries = None  # enable later if needed
+# Debug prints
+print("Excel path:", excel_path)
+print("Output map path:", output_map)
+print("Boundary path:", boundary_path)
 
 # ---------------------------------------------------
-# COLUMN NAMES
+# COLUMN NAMES (must match your Excel sheet)
 # ---------------------------------------------------
 EASTING = "easting"
 NORTHING = "northing"
@@ -29,11 +35,12 @@ ACORN = "Acorn Classification (Household)"
 MED_INC = "Median Income (PC)"
 
 # ---------------------------------------------------
-# LOAD + CLEAN
+# LOAD DATA
 # ---------------------------------------------------
 df = pd.read_excel(excel_path)
 df.columns = df.columns.str.strip()
 
+# Keep only valid coordinate rows
 df = df.dropna(subset=[EASTING, NORTHING]).copy()
 df[EASTING] = pd.to_numeric(df[EASTING], errors="coerce")
 df[NORTHING] = pd.to_numeric(df[NORTHING], errors="coerce")
@@ -41,36 +48,4 @@ df = df.dropna(subset=[EASTING, NORTHING])
 
 # ---------------------------------------------------
 # CONVERT TO GEO
-# ---------------------------------------------------
-gdf = gpd.GeoDataFrame(
-    df,
-    geometry=[Point(xy) for xy in zip(df[EASTING], df[NORTHING])],
-    crs="EPSG:27700"
-).to_crs(epsg=4326)
-
-# ---------------------------------------------------
-# CREATE MAP
-# ---------------------------------------------------
-center_lat = float(gdf.geometry.y.mean())
-center_lon = float(gdf.geometry.x.mean())
-
-m = folium.Map(
-    location=[center_lat, center_lon],
-    zoom_start=12,
-    tiles="cartodbpositron"
-)
-
-# ---------------------------------------------------
-# ADD BOROUGH OUTLINE
-# ---------------------------------------------------
-if hounslow_boundary.exists():
-    borough = gpd.read_file(hounslow_boundary).to_crs(epsg=4326)
-    folium.GeoJson(
-        borough,
-        name="Hounslow Borough",
-        style_function=lambda x: {"fillColor": "none", "color": "blue", "weight": 2},
-    ).add_to(m)
-
-# ---------------------------------------------------
-# OPTIONAL: ADD WARD BOUNDARIES
 # ---------------------------------------------------
